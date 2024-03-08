@@ -36,7 +36,7 @@ function takePhoto() {
         sourceType: Camera.PictureSourceType.CAMERA,
         mediaType: Camera.MediaType.CAMERA,
         encodingType: Camera.EncodingType.JPEG,
-        saveToPhotoAlbum: true,
+        //saveToPhotoAlbum: true,
         correctOrientation: true
     });
 }
@@ -72,7 +72,7 @@ function displayPhotos() {
 
                 // Optionally, you can include latitude and longitude information
                 var caption = document.createElement('div');
-                caption.innerText = "Latitude: " + photo.latitude + ", Longitude: " + photo.longitude + "URI: " + photo.uri;
+                caption.innerText = "Latitude: " + photo.latitude;
 
                 // Append the image and caption to your photo container
                 photoContainer.appendChild(img);
