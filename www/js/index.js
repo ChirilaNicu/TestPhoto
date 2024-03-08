@@ -1,144 +1,83 @@
+function onDeviceReady() {
+    db = window.sqlitePlugin.openDatabase({
+        name: 'photoLocator.db',
+        location: 'default'
+    });
 
-const app = {
-    tempURL: null,
-    permFolder: null,
-    oldFile: null,
-    permFile: null,
-    KEY: "OLDfileNAMEkey",
-    init: () => {
-        setTimeout(function () {
-            console.log("File system/plugin is ready");
-            app.addListeners();
-            //create the folder where we will save files
-            app.getPermFolder();
-        }, 2000);
-    },
-    addListeners: () => {
-        document.getElementById("btnCam").addEventListener("click", app.takePic);
-        document.getElementById("btnFile").addEventListener("click", app.copyImage);
-    },
-    getPermFolder: () => {
-        let path = cordova.file.dataDirectory;
-        //save the reference to the folder as a global app property
-        resolveLocalFileSystemURL(
-            path,
-            dirEntry => {
-                //create the permanent folder
-                dirEntry.getDirectory(
-                    "images",
-                    { create: true },
-                    permDir => {
-                        app.permFolder = permDir;
-                        console.log("Created or opened", permDir.nativeURL);
-                        //check for an old image from last time app ran
-                        app.loadOldImage();
-                    },
-                    err => {
-                        console.warn("failed to create or open permanent image dir");
-                    }
-                );
-            },
-            err => {
-                console.warn("We should not be getting an error yet");
-            }
-        );
-    },
-    loadOldImage: () => {
-        //check localstorage to see if there was an old file stored
-        let oldFilePath = localStorage.getItem(app.KEY);
-        //if there was an old file then load it into the imgFile
-        if (oldFilePath) {
-            resolveLocalFileSystemURL(
-                oldFilePath,
-                oldFileEntry => {
-                    app.oldFileEntry = oldFileEntry;
-                    let img = document.getElementById("imgFile");
-                    img.src = oldFileEntry.nativeURL;
-                },
-                err => {
-                    console.warn(err);
-                }
-            );
-        }
-    },
-    takePic: ev => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        let options = {
-            quality: 80,
-            destinationType: Camera.DestinationType.FILE_URI,
-            sourceType: Camera.PictureSourceType.CAMERA,
-            allowEdit: true,
-            encodingType: Camera.EncodingType.JPEG,
-            mediaType: Camera.MediaType.PICTURE,
-            targetWidth: 400,
-            targetHeight: 400
-        };
-        console.log(options);
-        navigator.camera.getPicture(app.gotImage, app.failImage, options);
-    },
-    gotImage: uri => {
-        app.tempURL = uri;
-        document.getElementById("imgCamera").src = uri;
-    },
-    failImage: err => {
-        console.warn(err);
-    },
-    copyImage: ev => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        //copy the temp image to a permanent location
-        let fileName = Date.now().toString() + ".jpg";
+    db.transaction(function (tx) {
+        tx.executeSql('CREATE TABLE IF NOT EXISTS Photos (id INTEGER PRIMARY KEY AUTOINCREMENT, uri TEXT, latitude REAL, longitude REAL)');
+    }, function (error) {
+        alert('Transaction ERROR: ' + error.message);
+    }, function () {
+        console.log('Database and table created');
+    });
+    var takePhotoButton = document.getElementById('take-photo-btn');
+    takePhotoButton.addEventListener('click', takePhoto);
+}
 
-        resolveLocalFileSystemURL(
-            app.tempURL,
-            entry => {
-                //we have a reference to the temp file now
-                console.log(entry);
-                console.log("copying", entry.name);
-                console.log(
-                    "copy",
-                    entry.name,
-                    "to",
-                    app.permFolder.nativeURL + fileName
-                );
-                //copy the temp file to app.permFolder
-                entry.copyTo(
-                    app.permFolder,
-                    fileName,
-                    permFile => {
-                        //the file has been copied
-                        //save file name in localstorage
-                        let path = permFile.nativeURL;
-                        localStorage.setItem(app.KEY, path);
-                        app.permFile = permFile;
-                        console.log(permFile);
-                        console.log("add", permFile.nativeURL, "to the 2nd image");
-                        document.getElementById("imgFile").src = permFile.nativeURL;
-                        //delete the old image file in the app.permFolder
-                        if (app.oldFile !== null) {
-                            app.oldFile.remove(
-                                () => {
-                                    console.log("successfully deleted old file");
-                                    //save the current file as the old file
-                                    app.oldFile = permFile;
-                                },
-                                err => {
-                                    console.warn("Delete failure", err);
-                                }
-                            );
-                        }
-                    },
-                    fileErr => {
-                        console.warn("Copy error", fileErr);
-                    }
-                );
-            },
-            err => {
-                console.error(err);
+function savePhotoData(uri, latitude, longitude) {
+    db.transaction(function (tx) {
+        tx.executeSql('INSERT INTO Photos (uri, latitude, longitude) VALUES (?, ?, ?)', [uri, latitude, longitude]);
+    }, function (error) {
+        alert('Transaction ERROR: ' + error.message);
+    }, function () {
+        console.log('Photo data saved successfully');
+    });
+    displayPhotos();
+
+}
+
+function takePhoto() {
+    navigator.camera.getPicture(onPhotoSuccess, onPhotoFail, {
+        quality: 80,
+        destinationType: Camera.DestinationType.DATA_URL,
+        sourceType: Camera.PictureSourceType.CAMERA,
+        mediaType: Camera.MediaType.CAMERA,
+        encodingType: Camera.EncodingType.JPEG,
+        saveToPhotoAlbum: true,
+        correctOrientation: true
+    });
+}
+
+function onPhotoSuccess(imageURI) {
+    // Get GPS coordinates
+    navigator.geolocation.getCurrentPosition(function (position) {
+        // Save photo URI and GPS coordinates to the local database
+        savePhotoData(imageURI, position.coords.latitude, position.coords.longitude);
+    }, onGeoError, { enableHighAccuracy: true });
+}
+
+function onPhotoFail(message) {
+    alert('Failed to get picture: ' + message);
+}
+
+function onGeoError(error) {
+    alert('Failed to get GPS location: ' + error.message);
+}
+function displayPhotos() {
+    db.transaction(function (tx) {
+        tx.executeSql('SELECT * FROM Photos', [], function (tx, results) {
+            var photoContainer = document.getElementById('photo-container');
+            photoContainer.innerHTML = ''; // Clear the container
+
+            var len = results.rows.length;
+            for (var i = 0; i < len; i++) {
+                var photo = results.rows.item(i);
+                var img = new Image();
+                img.src = photo.uri; // Assuming 'uri' contains a valid path for the image
+                img.className = "photo-thumbnail"; // CSS class for styling
+                img.setAttribute("alt", "Photo with ID " + photo.id);
+
+                // Optionally, you can include latitude and longitude information
+                var caption = document.createElement('div');
+                caption.innerText = "Latitude: " + photo.latitude + ", Longitude: " + photo.longitude;
+
+                // Append the image and caption to your photo container
+                photoContainer.appendChild(img);
+                photoContainer.appendChild(caption);
             }
-        );
-    }
-};
-const ready = "cordova" in window ? "deviceready" : "DOMContentLoaded";
-document.addEventListener(ready, app.init);
+        }, function (tx, error) {
+            alert('SELECT error: ' + error.message);
+        });
+    });
+}
