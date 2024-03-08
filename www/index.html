@@ -79,9 +79,8 @@
                 navigator.camera.getPicture(app.ftw, app.wtf, opts);
             },
             ftw: function (imgURI) {
-                document.getElementById('msg').textContent = "data:image/jpeg;base64," + imgURI;
-                document.getElementById('photo').src = "data:image/jpeg;base64," + imgURI;
-
+                // Atașează direct imgURI la src
+                document.getElementById('photo').src = imgURI;
             },
             wtf: function (msg) {
                 document.getElementById('msg').textContent = msg;
@@ -91,5 +90,6 @@
         document.addEventListener('deviceready', app.init);
     </script>
 </body>
+
 
 </html>
