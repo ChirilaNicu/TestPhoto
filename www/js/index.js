@@ -1,3 +1,5 @@
+document.addEventListener('deviceready', onDeviceReady, false);
+
 function onDeviceReady() {
     db = window.sqlitePlugin.openDatabase({
         name: 'photoLocator.db',
