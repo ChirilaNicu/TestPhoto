@@ -66,13 +66,13 @@ function displayPhotos() {
             for (var i = 0; i < len; i++) {
                 var photo = results.rows.item(i);
                 var img = new Image();
-                img.src = photo.uri; // Assuming 'uri' contains a valid path for the image
+                img.src = "data:image/jpeg;base64," + photo.uri;
                 img.className = "photo-thumbnail"; // CSS class for styling
                 img.setAttribute("alt", "Photo with ID " + photo.id);
 
                 // Optionally, you can include latitude and longitude information
                 var caption = document.createElement('div');
-                caption.innerText = "Latitude: " + photo.latitude + ", Longitude: " + photo.longitude;
+                caption.innerText = "Latitude: " + photo.latitude + ", Longitude: " + photo.longitude + "URI: " + photo.uri;
 
                 // Append the image and caption to your photo container
                 photoContainer.appendChild(img);
